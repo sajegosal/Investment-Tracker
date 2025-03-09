@@ -5,10 +5,10 @@
   <title>Investment Portfolio Tracker</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
-    /* Modern dark theme with dark green accents */
+    /* Modern dark theme with a darker green accent */
     body {
       background-color: #121212;
-      color: #008000;
+      color: #006400;
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       margin: 0;
       padding: 20px;
@@ -23,13 +23,13 @@
     input, select, button {
       padding: 10px;
       margin: 5px;
-      border: 1px solid #008000;
+      border: 1px solid #006400;
       background: #1e1e1e;
-      color: #008000;
+      color: #006400;
       border-radius: 4px;
     }
     button:hover {
-      background: #008000;
+      background: #006400;
       color: #121212;
       cursor: pointer;
     }
@@ -40,11 +40,11 @@
     }
     th, td {
       padding: 10px;
-      border: 1px solid #008000;
+      border: 1px solid #006400;
       text-align: center;
     }
     th {
-      background-color: #008000;
+      background-color: #006400;
       color: #121212;
     }
     .status {
@@ -133,7 +133,7 @@
       </tfoot>
     </table>
     
-    <!-- (Optional) Chart placeholders if you want to add charts later -->
+    <!-- (Optional) Chart placeholders -->
     <canvas id="sajeChart" width="600" height="400"></canvas>
     <canvas id="danicaChart" width="600" height="400"></canvas>
   </div>
@@ -144,12 +144,12 @@
     let portfolioDanica = [];
     const USD_TO_CAD = 1.35; // Conversion rate
 
-    // Utility: show status messages (errors in red, info in yellow)
+    // Utility: Display status messages (errors in red, info in yellow)
     function showStatus(message, isError = false) {
       const statusDiv = document.getElementById("status");
       statusDiv.textContent = message;
       statusDiv.className = isError ? "error" : "status";
-      // Clear the message after 5 seconds
+      // Clear after 5 seconds
       setTimeout(() => { statusDiv.textContent = ""; }, 5000);
     }
     
@@ -169,14 +169,22 @@
             return 0;
           }
         } else {
-          // For US and Canadian stocks, use Financial Modeling Prep API
-          const res = await fetch(`https://financialmodelingprep.com/api/v3/quote/${ticker}?apikey=demo`);
+          // For stocks, use Finnhub API.
+          // Replace "cv6gff9r01qi7f6q9l7gcv6gff9r01qi7f6q9l80" with your actual API key from finnhub.io.
+          const apiKey = "cv6gff9r01qi7f6q9l7gcv6gff9r01qi7f6q9l80";
+          let symbol = ticker.toUpperCase();
+          if (market === "Canada") {
+            if (!symbol.endsWith(".TO")) {
+              symbol += ".TO";
+            }
+          }
+          const res = await fetch(`https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${apiKey}`);
           const data = await res.json();
-          if (data && data.length > 0 && data[0].price) {
-            return data[0].price;
+          if (data && data.c) {
+            return data.c;
           } else {
-            showStatus("Financial Modeling Prep API: Price not found for " + ticker, true);
-            console.warn("Financial Modeling Prep API returned no price for:", ticker);
+            showStatus("Finnhub API: Price not found for " + symbol, true);
+            console.warn("Finnhub API returned no price for:", symbol);
             return 0;
           }
         }
@@ -236,7 +244,7 @@
       totalDisplay.textContent = "$" + totalPortfolioCAD.toFixed(2);
     }
     
-    // Remove asset from a portfolio by index
+    // Remove an asset by index
     function removeAsset(accountName, index) {
       if (accountName === "saje") {
         portfolioSaje.splice(index, 1);
@@ -248,7 +256,7 @@
       showStatus("Asset removed from " + accountName + " portfolio.");
     }
     
-    // Add asset to the selected account and update the table
+    // Add an asset to the selected account
     function addAsset() {
       const account = document.getElementById("account").value;
       const market = document.getElementById("market").value;
@@ -260,7 +268,7 @@
         return;
       }
       
-      const asset = { ticker: ticker.toUpperCase(), quantity, market, price: 0, total: 0 };
+      const asset = { ticker: ticker, quantity, market, price: 0, total: 0 };
       if (account === "saje") {
         portfolioSaje.push(asset);
         updateAccount("saje");
@@ -269,11 +277,10 @@
         updateAccount("danica");
       }
       
-      // Clear the input fields
       document.getElementById("ticker").value = "";
       document.getElementById("quantity").value = "";
       showStatus("Asset added successfully.");
-      console.log("Current portfolios:", portfolioSaje, portfolioDanica);
+      console.log("Portfolios:", portfolioSaje, portfolioDanica);
     }
     
     // Periodically update both accounts (every 60 seconds)
