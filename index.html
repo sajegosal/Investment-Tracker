@@ -2,163 +2,210 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Portfolio Tracker</title>
-  <!-- Chart.js for the historical graphs -->
+  <title>Investment Portfolio Tracker</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
-    /* Black and Green theme */
+    /* Modern dark theme with dark green accents */
     body {
-      background-color: #000;
-      color: #0f0;
-      font-family: sans-serif;
+      background-color: #121212;
+      color: #008000;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+      padding: 20px;
+    }
+    .container {
       max-width: 1000px;
       margin: auto;
-      padding: 1em;
     }
-    input, button, select {
-      margin: 0.5em;
-      padding: 0.5em;
-      font-size: 1em;
-      background-color: #000;
-      color: #0f0;
-      border: 1px solid #0f0;
+    label {
+      margin-right: 5px;
+    }
+    input, select, button {
+      padding: 10px;
+      margin: 5px;
+      border: 1px solid #008000;
+      background: #1e1e1e;
+      color: #008000;
+      border-radius: 4px;
     }
     button:hover {
-      background-color: #0f0;
-      color: #000;
+      background: #008000;
+      color: #121212;
       cursor: pointer;
     }
     table {
       width: 100%;
       border-collapse: collapse;
-      margin-top: 1em;
+      margin: 20px 0;
     }
     th, td {
-      border: 1px solid #0f0;
-      padding: 0.5em;
+      padding: 10px;
+      border: 1px solid #008000;
       text-align: center;
     }
     th {
-      background-color: #0f0;
-      color: #000;
+      background-color: #008000;
+      color: #121212;
     }
-    hr { border: 1px solid #0f0; margin: 2em 0; }
+    .status {
+      margin: 10px 0;
+      color: #ffaa00;
+    }
+    .error {
+      margin: 10px 0;
+      color: #ff5555;
+    }
   </style>
 </head>
 <body>
-  <h1>Investment Portfolio Tracker</h1>
-  <div>
-    <label for="account">Select Account:</label>
-    <select id="account">
-      <option value="saje">Saje</option>
-      <option value="danica">Danica</option>
-    </select>
+  <div class="container">
+    <h1>Investment Portfolio Tracker</h1>
+    <!-- Input Section -->
+    <div>
+      <label for="account">Account:</label>
+      <select id="account">
+        <option value="saje">Saje</option>
+        <option value="danica">Danica</option>
+      </select>
+      
+      <label for="market">Market:</label>
+      <select id="market">
+        <option value="Canada">Canada (CAD)</option>
+        <option value="US">US (USD)</option>
+        <option value="Crypto">Crypto (USD)</option>
+      </select>
+      
+      <label for="ticker">Ticker:</label>
+      <input type="text" id="ticker" placeholder="e.g. AAPL, TD, bitcoin">
+      
+      <label for="quantity">Quantity:</label>
+      <input type="number" id="quantity" placeholder="Quantity" step="any">
+      
+      <button onclick="addAsset()">Add Asset</button>
+    </div>
     
-    <label for="market">Select Market:</label>
-    <select id="market">
-      <option value="Canada">Canada (CAD)</option>
-      <option value="US">US (USD)</option>
-      <option value="Crypto">Crypto (USD)</option>
-    </select>
+    <!-- Status Message Area -->
+    <div id="status" class="status"></div>
     
-    <input id="ticker" type="text" placeholder="Ticker (e.g., AAPL or bitcoin)" />
-    <input id="quantity" type="number" placeholder="Quantity" />
-    <button onclick="addAsset()">Add Asset</button>
+    <!-- Saje's Account Table -->
+    <h2>Saje's Account</h2>
+    <table id="sajeTable">
+      <thead>
+        <tr>
+          <th>Ticker</th>
+          <th>Quantity</th>
+          <th>Price</th>
+          <th>Total (Asset Currency)</th>
+          <th>Currency</th>
+          <th>Total in CAD</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+      <tfoot>
+        <tr>
+          <td colspan="6"><strong>Total Portfolio (CAD)</strong></td>
+          <td id="sajeTotal">$0.00</td>
+        </tr>
+      </tfoot>
+    </table>
+    
+    <!-- Danica's Account Table -->
+    <h2>Danica's Account</h2>
+    <table id="danicaTable">
+      <thead>
+        <tr>
+          <th>Ticker</th>
+          <th>Quantity</th>
+          <th>Price</th>
+          <th>Total (Asset Currency)</th>
+          <th>Currency</th>
+          <th>Total in CAD</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+      <tfoot>
+        <tr>
+          <td colspan="6"><strong>Total Portfolio (CAD)</strong></td>
+          <td id="danicaTotal">$0.00</td>
+        </tr>
+      </tfoot>
+    </table>
+    
+    <!-- (Optional) Chart placeholders if you want to add charts later -->
+    <canvas id="sajeChart" width="600" height="400"></canvas>
+    <canvas id="danicaChart" width="600" height="400"></canvas>
   </div>
-
-  <!-- Saje's Account Section -->
-  <hr>
-  <h2>Saje's Account</h2>
-  <table id="sajeTable">
-    <thead>
-      <tr>
-        <th>Ticker</th>
-        <th>Quantity</th>
-        <th>Price</th>
-        <th>Total (Asset Currency)</th>
-        <th>Currency</th>
-        <th>Total in CAD</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-    <tfoot>
-      <tr>
-        <td colspan="5"><strong>Portfolio Total in CAD</strong></td>
-        <td id="sajePortfolioTotalCAD"></td>
-      </tr>
-    </tfoot>
-  </table>
-  <canvas id="sajeChart" width="600" height="400"></canvas>
-
-  <!-- Danica's Account Section -->
-  <hr>
-  <h2>Danica's Account</h2>
-  <table id="danicaTable">
-    <thead>
-      <tr>
-        <th>Ticker</th>
-        <th>Quantity</th>
-        <th>Price</th>
-        <th>Total (Asset Currency)</th>
-        <th>Currency</th>
-        <th>Total in CAD</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-    <tfoot>
-      <tr>
-        <td colspan="5"><strong>Portfolio Total in CAD</strong></td>
-        <td id="danicaPortfolioTotalCAD"></td>
-      </tr>
-    </tfoot>
-  </table>
-  <canvas id="danicaChart" width="600" height="400"></canvas>
-
+  
   <script>
-    // Arrays for each account.
+    // Global portfolios for each account
     let portfolioSaje = [];
     let portfolioDanica = [];
-    let historicalDataSaje = [];
-    let historicalDataDanica = [];
     const USD_TO_CAD = 1.35; // Conversion rate
 
-    // Robust fetchPrice function with error handling.
+    // Utility: show status messages (errors in red, info in yellow)
+    function showStatus(message, isError = false) {
+      const statusDiv = document.getElementById("status");
+      statusDiv.textContent = message;
+      statusDiv.className = isError ? "error" : "status";
+      // Clear the message after 5 seconds
+      setTimeout(() => { statusDiv.textContent = ""; }, 5000);
+    }
+    
+    // Fetch price from API based on market
     async function fetchPrice(ticker, market) {
       try {
         if (market === "Crypto") {
-          // Use CoinGecko for crypto (expects coin id in lowercase)
-          let coinId = ticker.toLowerCase();
+          // Use CoinGecko for crypto assets (expects coin ID in lowercase)
+          const coinId = ticker.toLowerCase();
           const res = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${coinId}&vs_currencies=usd`);
           const data = await res.json();
           if (data[coinId] && data[coinId].usd) {
             return data[coinId].usd;
           } else {
-            console.warn(`CoinGecko did not return a price for ${ticker}`);
+            showStatus("CoinGecko API: Price not found for " + ticker, true);
+            console.warn("CoinGecko API returned no price for:", ticker);
             return 0;
           }
         } else {
-          // For US and Canada stocks, use Financial Modeling Prep API.
+          // For US and Canadian stocks, use Financial Modeling Prep API
           const res = await fetch(`https://financialmodelingprep.com/api/v3/quote/${ticker}?apikey=demo`);
           const data = await res.json();
           if (data && data.length > 0 && data[0].price) {
             return data[0].price;
           } else {
-            console.warn(`Financial Modeling Prep did not return a price for ${ticker}`);
+            showStatus("Financial Modeling Prep API: Price not found for " + ticker, true);
+            console.warn("Financial Modeling Prep API returned no price for:", ticker);
             return 0;
           }
         }
       } catch (error) {
-        console.error("Error fetching price for " + ticker, error);
+        showStatus("Error fetching price for " + ticker, true);
+        console.error("Error in fetchPrice:", error);
         return 0;
       }
     }
-
-    // Update one account's table and chart.
-    async function updateAccountPortfolio(portfolio, historicalData, tableBodyElement, portfolioTotalElement, chart) {
-      tableBodyElement.innerHTML = "";
+    
+    // Update a given account's table
+    async function updateAccount(accountName) {
+      let portfolio, tableBody, totalDisplay;
+      if (accountName === "saje") {
+        portfolio = portfolioSaje;
+        tableBody = document.querySelector("#sajeTable tbody");
+        totalDisplay = document.getElementById("sajeTotal");
+      } else {
+        portfolio = portfolioDanica;
+        tableBody = document.querySelector("#danicaTable tbody");
+        totalDisplay = document.getElementById("danicaTotal");
+      }
+      
+      tableBody.innerHTML = "";
       let totalPortfolioCAD = 0;
       
-      for (let asset of portfolio) {
+      for (let i = 0; i < portfolio.length; i++) {
+        let asset = portfolio[i];
+        // Fetch the current price
         const price = await fetchPrice(asset.ticker, asset.market);
         asset.price = price;
         asset.total = price * asset.quantity;
@@ -173,142 +220,68 @@
         
         totalPortfolioCAD += asset.totalCAD;
         
-        // If no price is returned, show "N/A" to indicate an issue.
-        const priceDisplay = price ? (asset.currency === "USD" ? "US$" + price.toFixed(2) : "$" + price.toFixed(2)) : "N/A";
-        const totalDisplay = price ? (asset.currency === "USD" ? "US$" + asset.total.toFixed(2) : "$" + asset.total.toFixed(2)) : "N/A";
+        // Create a table row with a Remove button
         const row = document.createElement("tr");
         row.innerHTML = `
           <td>${asset.ticker}</td>
           <td>${asset.quantity}</td>
-          <td>${priceDisplay}</td>
-          <td>${totalDisplay}</td>
+          <td>${price ? (asset.currency==="USD" ? "US$" + price.toFixed(2) : "$" + price.toFixed(2)) : "N/A"}</td>
+          <td>${price ? (asset.currency==="USD" ? "US$" + asset.total.toFixed(2) : "$" + asset.total.toFixed(2)) : "N/A"}</td>
           <td>${asset.currency}</td>
           <td>$${asset.totalCAD.toFixed(2)}</td>
+          <td><button onclick="removeAsset('${accountName}', ${i})">Remove</button></td>
         `;
-        tableBodyElement.appendChild(row);
+        tableBody.appendChild(row);
       }
-      
-      portfolioTotalElement.innerText = "$" + totalPortfolioCAD.toFixed(2);
-      historicalData.push({ time: new Date(), value: totalPortfolioCAD });
-      
-      // Update chart.
-      chart.data.labels = historicalData.map(point => point.time);
-      chart.data.datasets[0].data = historicalData.map(point => point.value);
-      chart.update();
+      totalDisplay.textContent = "$" + totalPortfolioCAD.toFixed(2);
     }
-
-    async function updateAllPortfolios() {
-      await updateAccountPortfolio(
-        portfolioSaje,
-        historicalDataSaje,
-        document.querySelector("#sajeTable tbody"),
-        document.getElementById("sajePortfolioTotalCAD"),
-        chartSaje
-      );
-      await updateAccountPortfolio(
-        portfolioDanica,
-        historicalDataDanica,
-        document.querySelector("#danicaTable tbody"),
-        document.getElementById("danicaPortfolioTotalCAD"),
-        chartDanica
-      );
+    
+    // Remove asset from a portfolio by index
+    function removeAsset(accountName, index) {
+      if (accountName === "saje") {
+        portfolioSaje.splice(index, 1);
+        updateAccount("saje");
+      } else {
+        portfolioDanica.splice(index, 1);
+        updateAccount("danica");
+      }
+      showStatus("Asset removed from " + accountName + " portfolio.");
     }
-
-    // Add asset to selected account.
+    
+    // Add asset to the selected account and update the table
     function addAsset() {
-      const tickerInput = document.getElementById("ticker");
-      const quantityInput = document.getElementById("quantity");
-      const accountSelect = document.getElementById("account");
-      const marketSelect = document.getElementById("market");
+      const account = document.getElementById("account").value;
+      const market = document.getElementById("market").value;
+      const ticker = document.getElementById("ticker").value.trim();
+      const quantity = parseFloat(document.getElementById("quantity").value);
       
-      const account = accountSelect.value;
-      const market = marketSelect.value;
-      const ticker = tickerInput.value.trim();
-      const quantity = parseFloat(quantityInput.value);
-      
-      if (ticker && quantity > 0) {
-        const asset = { ticker: ticker.toUpperCase(), quantity, market, price: 0, total: 0 };
-        if (account === "saje") {
-          portfolioSaje.push(asset);
-        } else {
-          portfolioDanica.push(asset);
-        }
-        tickerInput.value = "";
-        quantityInput.value = "";
-        updateAllPortfolios();
+      if (!ticker || isNaN(quantity) || quantity <= 0) {
+        showStatus("Please enter a valid ticker and quantity.", true);
+        return;
       }
+      
+      const asset = { ticker: ticker.toUpperCase(), quantity, market, price: 0, total: 0 };
+      if (account === "saje") {
+        portfolioSaje.push(asset);
+        updateAccount("saje");
+      } else {
+        portfolioDanica.push(asset);
+        updateAccount("danica");
+      }
+      
+      // Clear the input fields
+      document.getElementById("ticker").value = "";
+      document.getElementById("quantity").value = "";
+      showStatus("Asset added successfully.");
+      console.log("Current portfolios:", portfolioSaje, portfolioDanica);
     }
-
-    // Initialize Chart.js charts.
-    const ctxSaje = document.getElementById('sajeChart').getContext('2d');
-    const chartSaje = new Chart(ctxSaje, {
-      type: 'line',
-      data: {
-        labels: [],
-        datasets: [{
-          label: "Saje's Portfolio Total in CAD",
-          data: [],
-          fill: false,
-          borderColor: '#0f0'
-        }]
-      },
-      options: {
-        scales: {
-          x: {
-            type: 'time',
-            time: { unit: 'minute' },
-            title: { display: true, text: 'Time' },
-            ticks: { color: "#0f0" }
-          },
-          y: {
-            beginAtZero: true,
-            title: { display: true, text: 'Value (CAD)' },
-            ticks: { color: "#0f0" }
-          }
-        },
-        plugins: {
-          legend: { labels: { color: "#0f0" } }
-        }
-      }
-    });
-
-    const ctxDanica = document.getElementById('danicaChart').getContext('2d');
-    const chartDanica = new Chart(ctxDanica, {
-      type: 'line',
-      data: {
-        labels: [],
-        datasets: [{
-          label: "Danica's Portfolio Total in CAD",
-          data: [],
-          fill: false,
-          borderColor: '#0f0'
-        }]
-      },
-      options: {
-        scales: {
-          x: {
-            type: 'time',
-            time: { unit: 'minute' },
-            title: { display: true, text: 'Time' },
-            ticks: { color: "#0f0" }
-          },
-          y: {
-            beginAtZero: true,
-            title: { display: true, text: 'Value (CAD)' },
-            ticks: { color: "#0f0" }
-          }
-        },
-        plugins: {
-          legend: { labels: { color: "#0f0" } }
-        }
-      }
-    });
-
-    // Auto-update portfolios every 60 seconds.
-    setInterval(updateAllPortfolios, 60000);
-    updateAllPortfolios();
+    
+    // Periodically update both accounts (every 60 seconds)
+    async function updateAll() {
+      await updateAccount("saje");
+      await updateAccount("danica");
+    }
+    setInterval(updateAll, 60000);
   </script>
 </body>
 </html>
-
-
