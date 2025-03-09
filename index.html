@@ -53,6 +53,14 @@
       <option value="saje">Saje</option>
       <option value="danica">Danica</option>
     </select>
+    
+    <label for="market">Select Market:</label>
+    <select id="market">
+      <option value="Canada">Canada (CAD)</option>
+      <option value="US">US (USD)</option>
+      <option value="Crypto">Crypto (USD)</option>
+    </select>
+    
     <input id="ticker" type="text" placeholder="Ticker (e.g., AAPL or bitcoin)" />
     <input id="quantity" type="number" placeholder="Quantity" />
     <button onclick="addAsset()">Add Asset</button>
@@ -114,40 +122,39 @@
     let historicalDataDanica = [];
     const USD_TO_CAD = 1.35; // Conversion rate for USD to CAD
 
-    // Fetch price from APIs:
-    // - Crypto: CoinGecko (returns USD)
-    // - Stock: Financial Modeling Prep (assumed to be CAD for Canadian assets)
-    async function fetchPrice(ticker) {
-      if (ticker.length > 3) {
-        // Crypto asset
+    // Fetch price using appropriate API based on asset market.
+    async function fetchPrice(ticker, market) {
+      if (market === "Crypto") {
+        // For crypto, use CoinGecko (expects a coin id in lowercase)
         let coinId = ticker.toLowerCase();
         const res = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${coinId}&vs_currencies=usd`);
         const data = await res.json();
         return data[coinId] ? data[coinId].usd : 0;
       } else {
-        // Canadian asset assumed (using Financial Modeling Prep API demo)
+        // For US and Canadian stocks, use Financial Modeling Prep API.
         const res = await fetch(`https://financialmodelingprep.com/api/v3/quote/${ticker}?apikey=demo`);
         const data = await res.json();
         return data[0] ? data[0].price : 0;
       }
     }
 
-    // Update a specific account portfolio.
+    // Update the portfolio table and chart for one account.
     async function updateAccountPortfolio(portfolio, historicalData, tableBodyElement, portfolioTotalElement, chart) {
       tableBodyElement.innerHTML = "";
       let totalPortfolioCAD = 0;
       
       for (let asset of portfolio) {
-        const price = await fetchPrice(asset.ticker);
+        const price = await fetchPrice(asset.ticker, asset.market);
         asset.price = price;
         asset.total = price * asset.quantity;
         
-        if (asset.ticker.length > 3) {
-          asset.currency = "USD";
-          asset.totalCAD = asset.total * USD_TO_CAD;
-        } else {
+        // Determine asset currency based on selected market.
+        if (asset.market === "Canada") {
           asset.currency = "CAD";
           asset.totalCAD = asset.total;
+        } else { // US or Crypto
+          asset.currency = "USD";
+          asset.totalCAD = asset.total * USD_TO_CAD;
         }
         
         totalPortfolioCAD += asset.totalCAD;
@@ -198,15 +205,19 @@
       const tickerInput = document.getElementById("ticker");
       const quantityInput = document.getElementById("quantity");
       const accountSelect = document.getElementById("account");
+      const marketSelect = document.getElementById("market");
+      
       const account = accountSelect.value;
+      const market = marketSelect.value;
       const ticker = tickerInput.value.trim();
       const quantity = parseFloat(quantityInput.value);
       
       if (ticker && quantity > 0) {
+        const asset = { ticker: ticker.toUpperCase(), quantity, market, price: 0, total: 0 };
         if (account === "saje") {
-          portfolioSaje.push({ ticker: ticker.toUpperCase(), quantity, price: 0, total: 0 });
+          portfolioSaje.push(asset);
         } else {
-          portfolioDanica.push({ ticker: ticker.toUpperCase(), quantity, price: 0, total: 0 });
+          portfolioDanica.push(asset);
         }
         tickerInput.value = "";
         quantityInput.value = "";
@@ -242,9 +253,7 @@
           }
         },
         plugins: {
-          legend: {
-            labels: { color: "#0f0" }
-          }
+          legend: { labels: { color: "#0f0" } }
         }
       }
     });
@@ -276,14 +285,12 @@
           }
         },
         plugins: {
-          legend: {
-            labels: { color: "#0f0" }
-          }
+          legend: { labels: { color: "#0f0" } }
         }
       }
     });
 
-    // Auto-update every 60 seconds.
+    // Auto-update portfolios every 60 seconds.
     setInterval(updateAllPortfolios, 60000);
     updateAllPortfolios();
   </script>
