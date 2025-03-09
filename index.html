@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Portfolio Tracker</title>
+  <!-- Chart.js for the historical graph -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { font-family: sans-serif; max-width: 800px; margin: auto; padding: 1em; }
+    input { margin: 0.5em; }
+    table { width: 100%; border-collapse: collapse; margin-top: 1em; }
+    th, td { border: 1px solid #ccc; padding: 0.5em; text-align: center; }
+  </style>
+</head>
+<body>
+  <h1>Investment Portfolio Tracker</h1>
+  <div>
+    <input id="ticker" type="text" placeholder="Ticker (e.g., AAPL or bitcoin)" />
+    <input id="quantity" type="number" placeholder="Quantity" />
+    <button onclick="addAsset()">Add Asset</button>
+  </div>
+
+  <table id="portfolioTable">
+    <thead>
+      <tr>
+        <th>Ticker</th>
+        <th>Quantity</th>
+        <th>Price (USD)</th>
+        <th>Total Value (USD)</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <canvas id="historyChart" width="600" height="400"></canvas>
+
+  <script>
+    // In-memory portfolio; consider localStorage if you want persistence.
+    let portfolio = [];
+    // Historical portfolio total values.
+    let historicalData = [];
+    
+    // For demo purposes, we use two free APIs:
+    // Stocks: Financial Modeling Prep API (demo key; rate limits apply)
+    // Crypto: CoinGecko API (free, no API key)
+    async function fetchPrice(ticker) {
+      // A simple rule: if ticker length > 3, assume it's crypto.
+      if (ticker.length > 3) {
+        // Note: CoinGecko uses coin IDs (e.g., bitcoin, ethereum).
+        let coinId = ticker.toLowerCase();
+        const res = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${coinId}&vs_currencies=usd`);
+        const data = await res.json();
+        return data[coinId] ? data[coinId].usd : 0;
+      } else {
+        const res = await fetch(`https://financialmodelingprep.com/api/v3/quote/${ticker}?apikey=demo`);
+        const data = await res.json();
+        return data[0] ? data[0].price : 0;
+      }
+    }
+
+    async function updatePortfolio() {
+      const tbody = document.querySelector("#portfolioTable tbody");
+      tbody.innerHTML = "";
+      let totalPortfolioValue = 0;
+      
+      for (let asset of portfolio) {
+        const price = await fetchPrice(asset.ticker);
+        asset.price = price;
+        asset.total = price * asset.quantity;
+        totalPortfolioValue += asset.total;
+        
+        const row = document.createElement("tr");
+        row.innerHTML = `
+          <td>${asset.ticker}</td>
+          <td>${asset.quantity}</td>
+          <td>$${price.toFixed(2)}</td>
+          <td>$${asset.total.toFixed(2)}</td>
+        `;
+        tbody.appendChild(row);
+      }
+      
+      // Record the current total portfolio value with timestamp.
+      historicalData.push({ time: new Date(), value: totalPortfolioValue });
+      updateChart();
+    }
+
+    function addAsset() {
+      const tickerInput = document.getElementById("ticker");
+      const quantityInput = document.getElementById("quantity");
+      const ticker = tickerInput.value.trim().toUpperCase();
+      const quantity = parseFloat(quantityInput.value);
+      
+      if (ticker && quantity > 0) {
+        portfolio.push({ ticker, quantity, price: 0, total: 0 });
+        tickerInput.value = "";
+        quantityInput.value = "";
+        updatePortfolio();
+      }
+    }
+
+    // Initialize Chart.js graph.
+    const ctx = document.getElementById('historyChart').getContext('2d');
+    const chart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: [],
+        datasets: [{
+          label: 'Portfolio Value (USD)',
+          data: [],
+          fill: false,
+          borderColor: 'blue'
+        }]
+      },
+      options: {
+        scales: {
+          x: {
+            type: 'time',
+            time: { unit: 'minute' },
+            title: { display: true, text: 'Time' }
+          },
+          y: {
+            beginAtZero: true,
+            title: { display: true, text: 'Value (USD)' }
+          }
+        }
+      }
+    });
+
+    function updateChart() {
+      chart.data.labels = historicalData.map(point => point.time);
+      chart.data.datasets[0].data = historicalData.map(point => point.value);
+      chart.update();
+    }
+
+    // Auto-update portfolio every 60 seconds.
+    setInterval(updatePortfolio, 60000);
+    // Initial update on load.
+    updatePortfolio();
+  </script>
+</body>
+</html>
