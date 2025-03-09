@@ -115,30 +115,45 @@
   <canvas id="danicaChart" width="600" height="400"></canvas>
 
   <script>
-    // Global arrays for each account.
+    // Arrays for each account.
     let portfolioSaje = [];
     let portfolioDanica = [];
     let historicalDataSaje = [];
     let historicalDataDanica = [];
-    const USD_TO_CAD = 1.35; // Conversion rate for USD to CAD
+    const USD_TO_CAD = 1.35; // Conversion rate
 
-    // Fetch price using appropriate API based on asset market.
+    // Robust fetchPrice function with error handling.
     async function fetchPrice(ticker, market) {
-      if (market === "Crypto") {
-        // For crypto, use CoinGecko (expects a coin id in lowercase)
-        let coinId = ticker.toLowerCase();
-        const res = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${coinId}&vs_currencies=usd`);
-        const data = await res.json();
-        return data[coinId] ? data[coinId].usd : 0;
-      } else {
-        // For US and Canadian stocks, use Financial Modeling Prep API.
-        const res = await fetch(`https://financialmodelingprep.com/api/v3/quote/${ticker}?apikey=demo`);
-        const data = await res.json();
-        return data[0] ? data[0].price : 0;
+      try {
+        if (market === "Crypto") {
+          // Use CoinGecko for crypto (expects coin id in lowercase)
+          let coinId = ticker.toLowerCase();
+          const res = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${coinId}&vs_currencies=usd`);
+          const data = await res.json();
+          if (data[coinId] && data[coinId].usd) {
+            return data[coinId].usd;
+          } else {
+            console.warn(`CoinGecko did not return a price for ${ticker}`);
+            return 0;
+          }
+        } else {
+          // For US and Canada stocks, use Financial Modeling Prep API.
+          const res = await fetch(`https://financialmodelingprep.com/api/v3/quote/${ticker}?apikey=demo`);
+          const data = await res.json();
+          if (data && data.length > 0 && data[0].price) {
+            return data[0].price;
+          } else {
+            console.warn(`Financial Modeling Prep did not return a price for ${ticker}`);
+            return 0;
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching price for " + ticker, error);
+        return 0;
       }
     }
 
-    // Update the portfolio table and chart for one account.
+    // Update one account's table and chart.
     async function updateAccountPortfolio(portfolio, historicalData, tableBodyElement, portfolioTotalElement, chart) {
       tableBodyElement.innerHTML = "";
       let totalPortfolioCAD = 0;
@@ -148,21 +163,19 @@
         asset.price = price;
         asset.total = price * asset.quantity;
         
-        // Determine asset currency based on selected market.
         if (asset.market === "Canada") {
           asset.currency = "CAD";
           asset.totalCAD = asset.total;
-        } else { // US or Crypto
+        } else {
           asset.currency = "USD";
           asset.totalCAD = asset.total * USD_TO_CAD;
         }
         
         totalPortfolioCAD += asset.totalCAD;
         
-        const priceDisplay = asset.currency === "USD" ? "US$" + price.toFixed(2) : "$" + price.toFixed(2);
-        const totalDisplay = asset.currency === "USD" ? "US$" + asset.total.toFixed(2) : "$" + asset.total.toFixed(2);
-        const totalCADDisplay = "$" + asset.totalCAD.toFixed(2);
-        
+        // If no price is returned, show "N/A" to indicate an issue.
+        const priceDisplay = price ? (asset.currency === "USD" ? "US$" + price.toFixed(2) : "$" + price.toFixed(2)) : "N/A";
+        const totalDisplay = price ? (asset.currency === "USD" ? "US$" + asset.total.toFixed(2) : "$" + asset.total.toFixed(2)) : "N/A";
         const row = document.createElement("tr");
         row.innerHTML = `
           <td>${asset.ticker}</td>
@@ -170,7 +183,7 @@
           <td>${priceDisplay}</td>
           <td>${totalDisplay}</td>
           <td>${asset.currency}</td>
-          <td>${totalCADDisplay}</td>
+          <td>$${asset.totalCAD.toFixed(2)}</td>
         `;
         tableBodyElement.appendChild(row);
       }
@@ -178,7 +191,7 @@
       portfolioTotalElement.innerText = "$" + totalPortfolioCAD.toFixed(2);
       historicalData.push({ time: new Date(), value: totalPortfolioCAD });
       
-      // Update chart data.
+      // Update chart.
       chart.data.labels = historicalData.map(point => point.time);
       chart.data.datasets[0].data = historicalData.map(point => point.value);
       chart.update();
@@ -201,6 +214,7 @@
       );
     }
 
+    // Add asset to selected account.
     function addAsset() {
       const tickerInput = document.getElementById("ticker");
       const quantityInput = document.getElementById("quantity");
@@ -225,7 +239,7 @@
       }
     }
 
-    // Initialize Chart.js charts for each account.
+    // Initialize Chart.js charts.
     const ctxSaje = document.getElementById('sajeChart').getContext('2d');
     const chartSaje = new Chart(ctxSaje, {
       type: 'line',
@@ -296,3 +310,4 @@
   </script>
 </body>
 </html>
+
