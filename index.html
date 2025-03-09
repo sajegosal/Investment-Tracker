@@ -14,7 +14,7 @@
       padding: 20px;
     }
     .container {
-      max-width: 1000px;
+      max-width: 1200px;
       margin: auto;
     }
     label {
@@ -55,6 +55,9 @@
       margin: 10px 0;
       color: #ff5555;
     }
+    h2, h3 {
+      margin-top: 40px;
+    }
   </style>
 </head>
 <body>
@@ -73,13 +76,17 @@
         <option value="Canada">Canada (CAD)</option>
         <option value="US">US (USD)</option>
         <option value="Crypto">Crypto (USD)</option>
+        <option value="Cash">Cash (CAD)</option>
       </select>
       
       <label for="ticker">Ticker:</label>
-      <input type="text" id="ticker" placeholder="e.g. AAPL, TD, bitcoin">
+      <input type="text" id="ticker" placeholder="e.g. AAPL, TD, bitcoin, leave empty for Cash">
       
       <label for="quantity">Quantity:</label>
-      <input type="number" id="quantity" placeholder="Quantity" step="any">
+      <input type="number" id="quantity" placeholder="Quantity / Cash Amount" step="any">
+      
+      <label for="manualPrice">Manual Price (optional):</label>
+      <input type="number" id="manualPrice" placeholder="Manual Price" step="any">
       
       <button onclick="addAsset()">Add Asset</button>
     </div>
@@ -110,6 +117,12 @@
       </tfoot>
     </table>
     
+    <!-- Saje Charts -->
+    <h3>Saje Portfolio Breakdown</h3>
+    <canvas id="sajePieChart" width="400" height="400"></canvas>
+    <h3>Saje Portfolio Value Over Time</h3>
+    <canvas id="sajeTimeChart" width="600" height="400"></canvas>
+    
     <!-- Danica's Account Table -->
     <h2>Danica's Account</h2>
     <table id="danicaTable">
@@ -133,9 +146,15 @@
       </tfoot>
     </table>
     
-    <!-- (Optional) Chart placeholders -->
-    <canvas id="sajeChart" width="600" height="400"></canvas>
-    <canvas id="danicaChart" width="600" height="400"></canvas>
+    <!-- Danica Charts -->
+    <h3>Danica Portfolio Breakdown</h3>
+    <canvas id="danicaPieChart" width="400" height="400"></canvas>
+    <h3>Danica Portfolio Value Over Time</h3>
+    <canvas id="danicaTimeChart" width="600" height="400"></canvas>
+    
+    <!-- Cumulative Chart -->
+    <h2>Cumulative Portfolio Value (Both Accounts)</h2>
+    <canvas id="cumulativeChart" width="600" height="400"></canvas>
   </div>
   
   <script>
@@ -143,6 +162,12 @@
     let portfolioSaje = [];
     let portfolioDanica = [];
     const USD_TO_CAD = 1.35; // Conversion rate
+    let historicalDataSaje = [];
+    let historicalDataDanica = [];
+    let historicalDataCumulative = [];
+
+    // Chart instances
+    let chartSajePie, chartDanicaPie, chartSajeTime, chartDanicaTime, chartCumulativeTime;
 
     // Utility: Display status messages (errors in red, info in yellow)
     function showStatus(message, isError = false) {
@@ -153,10 +178,17 @@
       setTimeout(() => { statusDiv.textContent = ""; }, 5000);
     }
     
-    // Fetch price from API based on market
-    async function fetchPrice(ticker, market) {
+    // Fetch price from API based on market and manual override
+    async function fetchPrice(ticker, market, manualPrice) {
+      // If manualPrice is provided, use it.
+      if (manualPrice) {
+        return manualPrice;
+      }
       try {
-        if (market === "Crypto") {
+        if (market === "Cash") {
+          // For cash, price is 1.
+          return 1;
+        } else if (market === "Crypto") {
           // Use CoinGecko for crypto assets (expects coin ID in lowercase)
           const coinId = ticker.toLowerCase();
           const res = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${coinId}&vs_currencies=usd`);
@@ -170,8 +202,7 @@
           }
         } else {
           // For stocks, use Finnhub API.
-          // Replace "cv6gff9r01qi7f6q9l7gcv6gff9r01qi7f6q9l80" with your actual API key from finnhub.io.
-          const apiKey = "cv6gff9r01qi7f6q9l7gcv6gff9r01qi7f6q9l80";
+          const apiKey = "YOUR_FINNHUB_API_KEY";
           let symbol = ticker.toUpperCase();
           if (market === "Canada") {
             if (!symbol.endsWith(".TO")) {
@@ -195,7 +226,7 @@
       }
     }
     
-    // Update a given account's table
+    // Update a given account's table and charts, and return total portfolio value.
     async function updateAccount(accountName) {
       let portfolio, tableBody, totalDisplay;
       if (accountName === "saje") {
@@ -213,12 +244,12 @@
       
       for (let i = 0; i < portfolio.length; i++) {
         let asset = portfolio[i];
-        // Fetch the current price
-        const price = await fetchPrice(asset.ticker, asset.market);
+        // Determine price: if manualPrice exists, use it; else, fetch.
+        let price = await fetchPrice(asset.ticker, asset.market, asset.manualPrice);
         asset.price = price;
         asset.total = price * asset.quantity;
         
-        if (asset.market === "Canada") {
+        if (asset.market === "Canada" || asset.market === "Cash") {
           asset.currency = "CAD";
           asset.totalCAD = asset.total;
         } else {
@@ -231,7 +262,7 @@
         // Create a table row with a Remove button
         const row = document.createElement("tr");
         row.innerHTML = `
-          <td>${asset.ticker}</td>
+          <td>${asset.ticker || "CASH"}</td>
           <td>${asset.quantity}</td>
           <td>${price ? (asset.currency==="USD" ? "US$" + price.toFixed(2) : "$" + price.toFixed(2)) : "N/A"}</td>
           <td>${price ? (asset.currency==="USD" ? "US$" + asset.total.toFixed(2) : "$" + asset.total.toFixed(2)) : "N/A"}</td>
@@ -242,9 +273,24 @@
         tableBody.appendChild(row);
       }
       totalDisplay.textContent = "$" + totalPortfolioCAD.toFixed(2);
+      
+      // Update Pie Chart for this account
+      updatePieChart(accountName, portfolio);
+      
+      // Record historical data for time series
+      let now = new Date();
+      if (accountName === "saje") {
+        historicalDataSaje.push({ time: now, value: totalPortfolioCAD });
+        updateTimeChart(chartSajeTime, historicalDataSaje);
+      } else {
+        historicalDataDanica.push({ time: now, value: totalPortfolioCAD });
+        updateTimeChart(chartDanicaTime, historicalDataDanica);
+      }
+      
+      return totalPortfolioCAD;
     }
     
-    // Remove an asset by index
+    // Remove an asset by index from an account
     function removeAsset(accountName, index) {
       if (accountName === "saje") {
         portfolioSaje.splice(index, 1);
@@ -262,13 +308,15 @@
       const market = document.getElementById("market").value;
       const ticker = document.getElementById("ticker").value.trim();
       const quantity = parseFloat(document.getElementById("quantity").value);
+      const manualPriceInput = document.getElementById("manualPrice").value;
+      const manualPrice = manualPriceInput ? parseFloat(manualPriceInput) : null;
       
-      if (!ticker || isNaN(quantity) || quantity <= 0) {
-        showStatus("Please enter a valid ticker and quantity.", true);
+      if ((market !== "Cash" && !ticker) || isNaN(quantity) || quantity <= 0) {
+        showStatus("Please enter a valid ticker (or leave blank for cash) and quantity.", true);
         return;
       }
       
-      const asset = { ticker: ticker, quantity, market, price: 0, total: 0 };
+      const asset = { ticker: ticker, quantity, market, manualPrice: manualPrice, price: 0, total: 0 };
       if (account === "saje") {
         portfolioSaje.push(asset);
         updateAccount("saje");
@@ -279,15 +327,147 @@
       
       document.getElementById("ticker").value = "";
       document.getElementById("quantity").value = "";
+      document.getElementById("manualPrice").value = "";
       showStatus("Asset added successfully.");
       console.log("Portfolios:", portfolioSaje, portfolioDanica);
     }
     
-    // Periodically update both accounts (every 60 seconds)
-    async function updateAll() {
-      await updateAccount("saje");
-      await updateAccount("danica");
+    // Update Pie Chart for an account based on portfolio breakdown
+    function updatePieChart(accountName, portfolio) {
+      let labels = [];
+      let data = [];
+      for (let asset of portfolio) {
+        // Only include assets with non-zero total
+        if (asset.totalCAD > 0) {
+          labels.push(asset.ticker || "CASH");
+          data.push(asset.totalCAD);
+        }
+      }
+      if (accountName === "saje") {
+        chartSajePie.data.labels = labels;
+        chartSajePie.data.datasets[0].data = data;
+        chartSajePie.update();
+      } else {
+        chartDanicaPie.data.labels = labels;
+        chartDanicaPie.data.datasets[0].data = data;
+        chartDanicaPie.update();
+      }
     }
+    
+    // Update a time series chart given historical data
+    function updateTimeChart(chart, historicalData) {
+      chart.data.labels = historicalData.map(point => point.time.toLocaleTimeString());
+      chart.data.datasets[0].data = historicalData.map(point => point.value);
+      chart.update();
+    }
+    
+    // Update both accounts and cumulative chart
+    async function updateAll() {
+      const totalSaje = await updateAccount("saje");
+      const totalDanica = await updateAccount("danica");
+      const cumulative = totalSaje + totalDanica;
+      historicalDataCumulative.push({ time: new Date(), value: cumulative });
+      updateTimeChart(chartCumulativeTime, historicalDataCumulative);
+    }
+    
+    // Initialize Charts after page load
+    window.onload = function() {
+      // Pie Charts for Saje and Danica
+      const pieColors = ['#004d00', '#006400', '#008000', '#009900', '#00b300', '#00cc00'];
+      
+      chartSajePie = new Chart(document.getElementById("sajePieChart").getContext("2d"), {
+        type: 'pie',
+        data: {
+          labels: [],
+          datasets: [{
+            data: [],
+            backgroundColor: pieColors
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { position: 'bottom' } }
+        }
+      });
+      
+      chartDanicaPie = new Chart(document.getElementById("danicaPieChart").getContext("2d"), {
+        type: 'pie',
+        data: {
+          labels: [],
+          datasets: [{
+            data: [],
+            backgroundColor: pieColors
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { position: 'bottom' } }
+        }
+      });
+      
+      // Time Series Charts for Saje, Danica, and Cumulative
+      chartSajeTime = new Chart(document.getElementById("sajeTimeChart").getContext("2d"), {
+        type: 'line',
+        data: {
+          labels: [],
+          datasets: [{
+            label: "Saje Portfolio Value (CAD)",
+            data: [],
+            fill: false,
+            borderColor: '#006400'
+          }]
+        },
+        options: {
+          scales: {
+            x: { title: { display: true, text: 'Time' } },
+            y: { title: { display: true, text: 'Value (CAD)' }, beginAtZero: true }
+          }
+        }
+      });
+      
+      chartDanicaTime = new Chart(document.getElementById("danicaTimeChart").getContext("2d"), {
+        type: 'line',
+        data: {
+          labels: [],
+          datasets: [{
+            label: "Danica Portfolio Value (CAD)",
+            data: [],
+            fill: false,
+            borderColor: '#006400'
+          }]
+        },
+        options: {
+          scales: {
+            x: { title: { display: true, text: 'Time' } },
+            y: { title: { display: true, text: 'Value (CAD)' }, beginAtZero: true }
+          }
+        }
+      });
+      
+      chartCumulativeTime = new Chart(document.getElementById("cumulativeChart").getContext("2d"), {
+        type: 'line',
+        data: {
+          labels: [],
+          datasets: [{
+            label: "Cumulative Portfolio Value (CAD)",
+            data: [],
+            fill: false,
+            borderColor: '#006400'
+          }]
+        },
+        options: {
+          scales: {
+            x: { title: { display: true, text: 'Time' } },
+            y: { title: { display: true, text: 'Value (CAD)' }, beginAtZero: true }
+          }
+        }
+      });
+      
+      // Initial update of all data
+      updateAll();
+    }
+    
+    // Periodically update all accounts and charts every 60 seconds
     setInterval(updateAll, 60000);
   </script>
 </body>
